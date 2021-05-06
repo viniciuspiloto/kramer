@@ -1,13 +1,16 @@
 import logging
-import time
 from datetime import datetime
 
 import requests
+from tqdm import tqdm
 from bs4 import BeautifulSoup
 
-from cigar import Cigar
-from functions import len_to_decimal, convert_currency, curr_to_string
+from kramer.cigar import Cigar
+from utils.functions import len_to_decimal, convert_currency, curr_to_string, cigars_to_csv
 
+logging.basicConfig(filename='./output/failure/failures.log',
+                    format='%(asctime)s %(message)s',
+                    filemode='w')
 logger = logging.getLogger(__name__)
 
 URL = 'https://www.cigaraficionado.com'
@@ -33,11 +36,11 @@ def get_cigar(url: str, headers: dict) -> Cigar:
     try:
         cigar_details = soup.find('div', class_='row cigar-detail')
 
-    # Tasting Notes
+        # Tasting Notes
         tasting_note = cigar_details.find(
             'div',
             class_='col-md-10 ml-auto order-3 order-md-2 cigar-detail_tastingnote')
-        tasting_note = tasting_note.contents[3].text
+        cigar.tasting_note = tasting_note.contents[3].text
 
         # Get graphic row details
         cigar.title = cigar_details.find('h1').contents[0]
@@ -82,7 +85,7 @@ def get_cigar(url: str, headers: dict) -> Cigar:
             currency = curr_to_string(price[0])
             cigar.price = convert_currency(price[1:], currency, 'USD')
         except Exception as e:
-            logger.warning(f'Cigar with no price. {e}')
+            logger.warning(f'Cigar with no price at {url}. {e}')
 
         # Box Date
         try:
@@ -107,6 +110,7 @@ def get_cigar(url: str, headers: dict) -> Cigar:
     return cigar
 
 
+# Get all cigars from all pages in URL
 def get_all_cigars(url: str, headers: dict) -> list:
     cigars = list()
 
@@ -115,7 +119,7 @@ def get_all_cigars(url: str, headers: dict) -> list:
 
     max_page = int(soup_search.find('ul', class_='pagination').contents[-2].text)
 
-    for page in range(1, max_page + 1):
+    for page in tqdm(range(1, max_page + 1)):
         try:
             url_page = f'{url}&page={page}'
 
@@ -125,14 +129,9 @@ def get_all_cigars(url: str, headers: dict) -> list:
             rows = soup.find('div', class_='content-cigarcard')
             view_tasting_note = rows.findChildren('p', class_='d-none d-lg-block')
             for cigar in view_tasting_note:
-                start_time = time.time()
                 cigar_url = URL + cigar.a.get('href')
-                print(f'Getting cigar info at {cigar_url}')
                 cigar = get_cigar(cigar_url, headers)
                 cigars.append(cigar)
-                end_time = time.time() - start_time
-                print(end_time)
-                # time.sleep(1)
         except Exception as e:
             logger.error(f'Error. {e}')
 
@@ -140,11 +139,10 @@ def get_all_cigars(url: str, headers: dict) -> list:
 
 
 if __name__ == '__main__':
-    # url = 'https://www.cigaraficionado.com/ratings/22759'
-    # url = 'https://www.cigaraficionado.com/ratings/22439'
-    # cigar = get_cigar(url, HEADERS)
 
     url = 'https://www.cigaraficionado.com/ratings/search?q=&brand='
-    get_all_cigars(url, HEADERS)
+    cigars = get_all_cigars(url, HEADERS)
+
+    cigars_to_csv(cigars)
 
     logger.info('All cigars were extracted')

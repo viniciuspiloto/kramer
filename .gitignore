@@ -130,3 +130,6 @@ dmypy.json
 
 # VSCode configs
 .vscode/
+
+# Output Data and Logs
+/output/*

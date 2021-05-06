@@ -1,5 +1,7 @@
+import os
 import fractions
 
+import pandas as pd
 from currency_converter import CurrencyConverter
 
 
@@ -41,4 +43,13 @@ def curr_to_string(curr: str) -> str:
     if any_curr(curr, curr_values):
         return curr_values.get(curr)
     else:
-        raise Exception('Invalid currency.')
+        raise Exception(f'Invalid currency: {curr}.')
+
+
+def cigars_to_csv(cigars: list, path: str = 'output/data', **kwargs) -> None:
+    df = pd.DataFrame()
+
+    for cigar in cigars:
+        df = df.append(cigar.to_pandas())
+
+    df.to_csv(os.path.join(path, 'cigars.csv'), index=False, **kwargs)
